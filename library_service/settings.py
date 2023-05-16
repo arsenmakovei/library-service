@@ -39,6 +39,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework_simplejwt",
     "users",
 ]
 
@@ -110,7 +112,7 @@ AUTH_USER_MODEL = "users.User"
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Europe/Kiev"
 
 USE_I18N = True
 
