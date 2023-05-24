@@ -18,6 +18,20 @@ class Borrowing(models.Model):
     def __str__(self):
         return f"{self.user.email}: {self.book.title}"
 
+    @property
+    def total_price(self):
+        return (
+            self.book.dayle_fee
+            * (self.expected_return_date - self.borrow_date).days
+        )
+
+    @property
+    def fine_price(self):
+        return (
+            self.book.dayle_fee
+            * (self.actual_return_date - self.expected_return_date).days
+        ) * 2
+
 
 class Payment(models.Model):
     class StatusChoices(models.TextChoices):
