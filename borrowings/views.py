@@ -1,15 +1,23 @@
+import os
+
+import stripe
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from borrowings.models import Borrowing
+from borrowings.models import Borrowing, Payment
 from borrowings.serializers import (
     BorrowingSerializer,
     BorrowingListSerializer,
     BorrowingReturnSerializer,
+    PaymentSerializer,
 )
+
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 
 class BorrowingViewSet(
@@ -63,14 +71,64 @@ class BorrowingViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        borrowing.actual_return_date = timezone.now()
+        borrowing.actual_return_date = timezone.now().date()
         borrowing.save()
 
         book = borrowing.book
         book.inventory += 1
         book.save()
 
+        if borrowing.actual_return_date > borrowing.expected_return_date:
+            fine_amount = borrowing.fine_price
+
+            Payment.objects.create(
+                status=Payment.StatusChoices.PENDING,
+                type=Payment.TypeChoices.FINE,
+                borrowing=borrowing,
+                money_to_pay=fine_amount,
+            )
+
         return Response(
             {"success": "Your book was successfully returned"},
+            status=status.HTTP_200_OK,
+        )
+
+
+class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = self.queryset
+
+        if not self.request.user.is_staff:
+            return queryset.filter(borrowing__user=self.request.user)
+
+        return queryset
+
+    @action(detail=True, methods=["GET"], url_path="success")
+    def payment_success(self, request, pk=None):
+        payment = get_object_or_404(Payment, pk=pk)
+
+        session = stripe.checkout.Session.retrieve(payment.session_id)
+        if session.payment_status == "paid":
+            payment.status = Payment.StatusChoices.PAID
+            payment.save()
+
+            return Response(
+                {"success": "Payment was successful."},
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                {"error": "Payment was not successful."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @action(detail=True, methods=["GET"], url_path="cancel")
+    def payment_cancel(self, request, pk=None):
+        return Response(
+            {"message": "Payment can be made later."},
             status=status.HTTP_200_OK,
         )
