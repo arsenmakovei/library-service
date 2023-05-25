@@ -3,6 +3,8 @@ import os
 import stripe
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -62,8 +64,28 @@ class BorrowingViewSet(
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="is_active",
+                description="Filter by active borrowings",
+                required=False,
+                type=OpenApiTypes.BOOL,
+            ),
+            OpenApiParameter(
+                name="user_id",
+                description="Filter by user ID",
+                required=False,
+                type=OpenApiTypes.INT,
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
     @action(methods=["POST"], detail=True, url_path="return")
     def book_return(self, request, pk=None):
+        """Return a borrowed book"""
         borrowing = self.get_object()
 
         if borrowing.actual_return_date is not None:
@@ -110,6 +132,7 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=["GET"], url_path="success")
     def payment_success(self, request, pk=None):
+        """Handle a successful payment"""
         payment = get_object_or_404(Payment, pk=pk)
 
         session = stripe.checkout.Session.retrieve(payment.session_id)
@@ -136,6 +159,7 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=["GET"], url_path="cancel")
     def payment_cancel(self, request, pk=None):
+        """Handle a canceled payment"""
         return Response(
             {"message": "Payment can be made later."},
             status=status.HTTP_200_OK,
