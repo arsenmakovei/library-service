@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from books.serializers import BookSerializer
 from borrowings.models import Borrowing, Payment
+from borrowings.notification_service import send_telegram_message
 from borrowings.payment_service import create_stripe_session
 
 
@@ -36,6 +37,18 @@ class BorrowingSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("id", "borrow_date", "actual_return_date", "user")
 
+    def validate(self, attrs):
+        user = self.context["request"].user
+
+        if Payment.objects.filter(
+            borrowing__user=user, status=Payment.StatusChoices.PENDING
+        ).exists():
+            raise serializers.ValidationError(
+                "You have pending payments. Cannot borrow a new book."
+            )
+
+        return attrs
+
     def validate_book(self, book):
         if book.inventory == 0:
             raise serializers.ValidationError(
@@ -58,6 +71,12 @@ class BorrowingSerializer(serializers.ModelSerializer):
 
         book.inventory -= 1
         book.save()
+
+        message = (
+            f"New borrowing created:\nUser: {user.email}\nBook: {book.title}"
+        )
+        send_telegram_message(message)
+
         return borrowing
 
 
