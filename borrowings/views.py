@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from borrowings.models import Borrowing, Payment
+from borrowings.notification_service import send_telegram_message
 from borrowings.serializers import (
     BorrowingSerializer,
     BorrowingListSerializer,
@@ -115,6 +116,13 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
         if session.payment_status == "paid":
             payment.status = Payment.StatusChoices.PAID
             payment.save()
+
+            message = (
+                f"Payment #{payment.id} was successful.\n"
+                f"Type: {payment.type}\n"
+                f"Borrowing: {payment.borrowing}"
+            )
+            send_telegram_message(message)
 
             return Response(
                 {"success": "Payment was successful."},
