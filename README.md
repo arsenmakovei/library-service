@@ -26,14 +26,13 @@ Linux, Unix: source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Set environment variables
+2. Create .env file and set environment variables
 
-On Windows use ```export``` command instead of ```set```
 ```shell
-set SECRET_KEY=<your Django secret key>
-set STRIPE_API_KEY=<your Stripe API key>
-set TELEGRAM_BOT_TOKEN=<your Telegram Bot token>
-set TELEGRAM_CHAT_ID=<your Telegram chat id>
+SECRET_KEY=<your Django secret key>
+STRIPE_API_KEY=<your Stripe API key>
+TELEGRAM_BOT_TOKEN=<your Telegram Bot token>
+TELEGRAM_CHAT_ID=<your Telegram chat id>
 ```
 
 3. Make migrations and run server
