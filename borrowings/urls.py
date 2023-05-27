@@ -8,7 +8,6 @@ router.register("borrowings", BorrowingViewSet, basename="borrowing")
 router.register("payments", PaymentViewSet, basename="payment")
 
 urlpatterns = [
-    *router.urls,
     path(
         "payments/<int:pk>/success/",
         PaymentViewSet.as_view({"get": "payment_success"}),
@@ -19,6 +18,6 @@ urlpatterns = [
         PaymentViewSet.as_view({"get": "payment_cancel"}),
         name="payment_cancel",
     ),
-]
+] + router.urls
 
 app_name = "borrowings"
