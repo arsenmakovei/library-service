@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
 from books.serializers import BookSerializer
@@ -88,3 +89,33 @@ class BorrowingListSerializer(BorrowingSerializer):
 class BorrowingReturnSerializer(BorrowingSerializer):
     expected_return_date = serializers.ReadOnlyField()
     book = serializers.ReadOnlyField()
+
+    def validate(self, attrs):
+        borrowing = self.instance
+
+        if borrowing.actual_return_date is not None:
+            raise serializers.ValidationError("Book has already been returned")
+
+        return attrs
+
+    @transaction.atomic
+    def save(self, **kwargs):
+        borrowing = self.instance
+        borrowing.actual_return_date = timezone.now().date()
+        borrowing.save()
+
+        book = borrowing.book
+        book.inventory += 1
+        book.save()
+
+        if borrowing.actual_return_date > borrowing.expected_return_date:
+            fine_amount = borrowing.fine_price
+
+            Payment.objects.create(
+                status=Payment.StatusChoices.PENDING,
+                type=Payment.TypeChoices.FINE,
+                borrowing=borrowing,
+                money_to_pay=fine_amount,
+            )
+
+        return borrowing

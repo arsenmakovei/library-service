@@ -2,7 +2,6 @@ import os
 
 import stripe
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import mixins, viewsets, status
@@ -87,29 +86,9 @@ class BorrowingViewSet(
     def book_return(self, request, pk=None):
         """Return a borrowed book"""
         borrowing = self.get_object()
-
-        if borrowing.actual_return_date is not None:
-            return Response(
-                {"error": "Book has already been returned"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        borrowing.actual_return_date = timezone.now().date()
-        borrowing.save()
-
-        book = borrowing.book
-        book.inventory += 1
-        book.save()
-
-        if borrowing.actual_return_date > borrowing.expected_return_date:
-            fine_amount = borrowing.fine_price
-
-            Payment.objects.create(
-                status=Payment.StatusChoices.PENDING,
-                type=Payment.TypeChoices.FINE,
-                borrowing=borrowing,
-                money_to_pay=fine_amount,
-            )
+        serializer = self.get_serializer(instance=borrowing, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
         return Response(
             {"success": "Your book was successfully returned"},
